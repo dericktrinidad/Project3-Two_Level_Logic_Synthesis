@@ -39,7 +39,7 @@ class branch_bound_tree:
     def prune_matrix_shell(self,matrix):
         #TODO: Find essential Prime Implicants in matrix
         print("Remove Essential Prime Implicants")
-        while matrix.matrix:
+        while matrix.matrix.any():
             essential_pi_table, matrix, essential_minterms1 = self.essential_prime_implicants(matrix)
             print("Next Matrix: \n", matrix.matrix)
             print("Next Prime Implicants: ", matrix.prime_implicants)
@@ -71,6 +71,19 @@ class branch_bound_tree:
                 essential_minterms.add(row_idx)
 
         return essential_minterms
+
+    def find_essential_prime_implicants(self, matrix):
+        EPI_row_axis = []
+        processed_minterms = set()
+        for col_idx in range(matrix.matrix.shape[1]):
+            count = np.sum(matrix.matrix[:, col_idx])
+            if count == 1:
+                minterm_idx = np.where(matrix.matrix[:, col_idx] == 1)[0][0]
+                minterm = matrix.minterms[minterm_idx]
+                if minterm not in processed_minterms:
+                    EPI_row_axis.append(minterm)
+                    processed_minterms.add(minterm)
+        return EPI_row_axis
 
 
     def prune_matrix(self, matrix: minterm_matrix, essential_pi_table)-> np.array:
