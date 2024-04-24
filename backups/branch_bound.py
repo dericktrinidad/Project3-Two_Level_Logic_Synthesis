@@ -3,10 +3,9 @@ from collections import defaultdict
 import copy
 
 class minterm_matrix:
-    def __init__(self, matrix, prime_implicants, minterms):
+    def __init__(self, matrix, prime_implicants):
         self.matrix = matrix #-> np.array matrix 0 or 1
         self.prime_implicants = prime_implicants #-> List of integers
-        self.minterms = minterms #-> List of tuples
         self.cost = None #-> integer
 
     def __lt__(self, other) -> bool:
@@ -15,13 +14,13 @@ class minterm_matrix:
         return NotImplemented
 
 class prime_implicant:
-    def __init__(self, pi_table, prev_leftovers=None):
-
-        self.pi_table = pi_table
+    def __init__(self, group_table, minterm_table, prev_leftovers=None):
+        self.group_table = group_table
+        self.minterm_table = minterm_table
         self.prev_leftovers = prev_leftovers
         self.parent = None
         self.child = None
-        self.leftover_check = None
+        self.last_group_check = None
 
 class branch_bound_tree:
     def __init__(self, prime_implicants):
@@ -29,11 +28,28 @@ class branch_bound_tree:
         self.pi_idx_table = {idx:pi for idx, pi in enumerate(self.prime_implicants)}
         self.max_bit = format(max(prime_implicants), 'b')
         self.most_significant_bit = len(self.max_bit)
+
         binary_table = self.build_binary_table(prime_implicants)
-        initial_pi = self.build_initial_pi(binary_table)
+        group_table, minterm_table = self.build_initial_tables(binary_table)
+        initial_pi = prime_implicant(group_table, minterm_table)
         final_pi = self.spi_shell(initial_pi)
-        matrix = self.build_minterm_matrix(final_pi)
-        print(matrix.matrix)
+        final_minterm_table = final_pi.minterm_table
+        final_group_table = final_pi.group_table
+        print("final group table: ", final_group_table)
+        print("final minterm table: ", final_minterm_table)
+        print("parent group table: ", final_pi.parent.group_table)
+        print("parent minterm table: ", final_pi.parent.minterm_table)
+        print("parent final leftover minterms: ", final_pi.parent.last_group_check)
+        leftover = set()
+        parent_minterm_table = final_pi.parent.minterm_table
+        parent_group_table = final_pi.parent.group_table
+        parent_group_check = final_pi.parent.last_group_check
+        for group in parent_group_check:
+            # print(group)
+            leftover.add((group, parent_minterm_table[group]))
+        # print(final_minterm_table)
+        matrix = self.build_minterm_matrix(final_minterm_table)
+        # print(matrix.matrix)
         #TODO: Find essential Prime Implicants in matrix
         # essential_pi_table, next_matrix = self.essential_prime_implicants(matrix)
         #TODO: Prune matrix
@@ -74,23 +90,14 @@ class branch_bound_tree:
 
 
     def build_minterm_matrix(self, pi):
-        pi_table = pi.pi_table
-        leftover_minterms = pi.parent.leftover_check
-        print('leftover_minterms: ', leftover_minterms)
-        minterms = set(minterm for minterms in pi_table.values() for minterm in minterms.keys())
-        if leftover_minterms:
-            minterms = leftover_minterms.union(minterms)
-        minterms_sorted = sorted(minterms, key=lambda x: (len(x), x))
-        print('Row Axis: ', minterms_sorted)
-        print('Column Axis: ', self.prime_implicants)
-        matrix = np.zeros((len(minterms_sorted), len(self.prime_implicants)), dtype='int')
-        for idx, minterm in enumerate(minterms_sorted):
+        minterm_table = pi.minterm_table
+        matrix = np.zeros((self.most_significant_bit, len(self.prime_implicants)), dtype='int')
+        for idx, minterm in enumerate(minterm_table.keys()):
             row = matrix[idx, :]
             for bit in minterm:
                 row_idx = self.prime_implicants.index(bit)
                 row[row_idx] = 1
-        
-        return minterm_matrix(matrix, self.prime_implicants, minterms_sorted)
+        return minterm_matrix(matrix, self.prime_implicants)
     
     def build_binary_table(self, prime_implicants):
         max_int = max(prime_implicants)
@@ -100,39 +107,50 @@ class branch_bound_tree:
         print(binary_representations)
         return binary_representations
     
-    def build_initial_pi(self, binary_lists):
-        pi_table = defaultdict(lambda: defaultdict(str))
+    def build_initial_tables(self, binary_lists):
+        minterm_table = defaultdict(str)
+        group_table = defaultdict(list)
         for minterm, bits in binary_lists.items():
             uninverted_bits_count = sum([int(char) for char in bits])
-            pi_table[uninverted_bits_count][(minterm,)]=bits
-        pi = prime_implicant(pi_table)
-        return pi
+            group_table[uninverted_bits_count].append((minterm,))
+            for byte in bits:
+                minterm_table[(minterm,)]+=str(byte)
+        return group_table, minterm_table
 
     def spi_shell(self, pi):
         best_pi = None
-        while (pi.pi_table):
+        while (pi.minterm_table or pi.group_table):
             pi = self.simplify_prime_implicants(pi)
-            if pi.pi_table:
+                
+            if pi.minterm_table and pi.group_table:
                 best_pi = copy.deepcopy(pi)
         return best_pi
     
     def simplify_prime_implicants(self, pi):
-        pi_table = pi.pi_table
-        uninv_bits_counts = list(pi_table.keys())
+        group_table, minterm_table = pi.group_table, pi.minterm_table
+
+        uninv_bits_counts = list(group_table.keys())
         
-        next_pi_table = defaultdict(lambda: defaultdict(str))
-        next_pi = prime_implicant(next_pi_table)
+        next_group_table = defaultdict(list)
+        next_minterm_table = {}
+        next_pi = prime_implicant(next_group_table, next_minterm_table)
         next_pi.parent = pi
         pi.child = next_pi
 
         unique_bits = set()
-        pi.leftover_check = set(minterms for group_minterms in pi_table.values() for minterms in group_minterms.keys())
+        pi.last_group_check = set(group for group_vals in group_table.values() for group in group_vals)
+
         for idx in range(len(uninv_bits_counts)-1):
             current_group, next_group = uninv_bits_counts[idx], uninv_bits_counts[idx+1]
-            for current_minterms, current_bits in pi_table[current_group].items():
-                for next_minterms, next_bits in pi_table[next_group].items():
+            for current_minterms in group_table[current_group]:
+                current_bits = minterm_table[current_minterms]
+
+                for next_minterms in group_table[next_group]:
                     absorb_count = 0
                     variable = ''
+                    
+                    next_bits = minterm_table[next_minterms]
+
                     for byte_idx in range(0,self.most_significant_bit):
                         current_byte = current_bits[byte_idx]
                         next_byte = next_bits[byte_idx]
@@ -141,11 +159,14 @@ class branch_bound_tree:
                         else:
                             variable += '-'
                             absorb_count += 1
+
                     if absorb_count == 1:
                         if  variable not in unique_bits:
-                            next_pi_table[idx][current_minterms+next_minterms] = variable
+                            next_pi.group_table[idx].append((current_minterms+next_minterms))
+                            next_pi.minterm_table[current_minterms+next_minterms] = variable
                             unique_bits.add(variable)
-                        pi.leftover_check.discard(current_minterms), pi.leftover_check.discard(next_minterms)
+                        pi.last_group_check.discard(current_minterms)
+                        pi.last_group_check.discard(next_minterms)
         return next_pi
 
     def get_minterm_matrix(self) -> np.array:
