@@ -40,6 +40,21 @@ class branch_bound_tree:
         # next_matrix = self.prune_matrix(next_matrix, essential_pi_table)
         # print(next_matrix.matrix)
         # print(next_matrix.prime_implicants)
+        EPI_row_axis = self.find_essential_prime_implicants(matrix)
+        print("Row Axis (EPI):", EPI_row_axis)
+
+    def find_essential_prime_implicants(self, matrix):
+        EPI_row_axis = []
+        processed_minterms = set()
+        for col_idx in range(matrix.matrix.shape[1]):
+            count = np.sum(matrix.matrix[:, col_idx])
+            if count == 1:
+                minterm_idx = np.where(matrix.matrix[:, col_idx] == 1)[0][0]
+                minterm = matrix.minterms[minterm_idx]
+                if minterm not in processed_minterms:
+                    EPI_row_axis.append(minterm)
+                    processed_minterms.add(minterm)
+        return EPI_row_axis
 
     def prune_matrix(self, matrix: minterm_matrix, essential_pi_table)-> np.array:
         current_matrix = matrix.matrix
