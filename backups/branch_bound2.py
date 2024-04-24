@@ -34,33 +34,30 @@ class branch_bound_tree:
         final_pi = self.spi_shell(initial_pi)
         matrix = self.build_minterm_matrix(final_pi)
         print(matrix.matrix)
-        final_equation = self.prune_matrix_shell(matrix)
-        print(final_equation)
-    def prune_matrix_shell(self,matrix):
         #TODO: Find essential Prime Implicants in matrix
         print("Remove Essential Prime Implicants")
-        while matrix.matrix:
-            essential_pi_table, matrix, essential_minterms1 = self.essential_prime_implicants(matrix)
-            print("Next Matrix: \n", matrix.matrix)
-            print("Next Prime Implicants: ", matrix.prime_implicants)
-            print("Essential Prime Implicants", essential_pi_table)
-            print("Essential Minterms1: ", essential_minterms1)
-            #TODO: Prune matrix
-            print("Prune matrix using col dominance")
-            matrix = self.prune_matrix(matrix, essential_pi_table)
-            print("Next Matrix: \n", matrix.matrix)
-            print("Next Prime Implicants: \n", matrix.prime_implicants)
-            essential_minterms2 = self.essential_minterms(matrix)
-            print("Essential Minterms2: ", essential_minterms2)
+        essential_pi_table, next_matrix, essential_minterms1 = self.essential_prime_implicants(matrix)
+        print("Next Matrix: \n", next_matrix.matrix)
+        print("Next Prime Implicants: ", next_matrix.prime_implicants)
+        print("Essential Prime Implicants", essential_pi_table)
+        print("Essential Minterms1: ", essential_minterms1)
+        #TODO: Prune matrix
+        print("Prune matrix using col dominance")
+        next_matrix = self.prune_matrix(next_matrix, essential_pi_table)
+        print("Next Matrix: \n", next_matrix.matrix)
+        print("Next Prime Implicants: \n", next_matrix.prime_implicants)
+        essential_minterms2 = self.essential_minterms(next_matrix)
+        print("Essential Minterms2: ", essential_minterms2)
 
-            essential_minterms = essential_minterms1.union(essential_minterms2)
-            print("TOTAL ESSENTIAL ROW IDXS: ", essential_minterms)
-            matrix_minterms = matrix.minterms
-            essential_bits = [matrix_minterms[minterm_idx] for minterm_idx in essential_minterms]
+        essential_minterms = essential_minterms1.union(essential_minterms2)
+        print("TOTAL ESSENTIAL ROW IDXS: ", essential_minterms)
+        matrix_minterms = matrix.minterms
+        essential_bits = [matrix_minterms[minterm_idx] for minterm_idx in essential_minterms]
+        print("TOTAL ESSENTIAL (MINTERM, BITS): ", essential_bits)
 
-            print("TOTAL ESSENTIAL (MINTERM, BITS): ", essential_bits)
-            return
+    def prune_matrix_shell(self,matrix):
         
+
     def essential_minterms(self, matrix: minterm_matrix):
         current_matrix = matrix.matrix
         # current_prime_implicants = matrix.prime_implicants
