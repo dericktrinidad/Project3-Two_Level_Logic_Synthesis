@@ -24,6 +24,7 @@ class prime_implicant:
         self.leftover_check = None
 
 class branch_bound_tree:
+
     def __init__(self, prime_implicants):
         self.prime_implicants = prime_implicants
         self.pi_idx_table = {idx:pi for idx, pi in enumerate(self.prime_implicants)}
@@ -36,32 +37,38 @@ class branch_bound_tree:
         print(matrix.matrix)
         final_equation = self.prune_matrix_shell(matrix)
         print(final_equation)
+
     def prune_matrix_shell(self,matrix):
         #TODO: Find essential Prime Implicants in matrix
         print("Remove Essential Prime Implicants")
+        current_minterms = ''
         while matrix.matrix.any():
-            essential_pi_table, matrix, essential_minterms1 = self.essential_prime_implicants(matrix)
+            essential_pi_table, matrix, essential_minterms = self.essential_prime_implicants(matrix)
+            
             print("Next Matrix: \n", matrix.matrix)
             print("Next Prime Implicants: ", matrix.prime_implicants)
             print("Essential Prime Implicants", essential_pi_table)
-            print("Essential Minterms1: ", essential_minterms1)
+            print("Essential Minterms1: ", essential_minterms)
+            for minterms in essential_minterms:
+                current_minterms += minterms
             #TODO: Prune matrix
             print("Prune matrix using col dominance")
             matrix = self.prune_matrix(matrix, essential_pi_table)
             print("Next Matrix: \n", matrix.matrix)
             print("Next Prime Implicants: \n", matrix.prime_implicants)
-            essential_minterms2 = self.essential_minterms(matrix)
-            print("Essential Minterms2: ", essential_minterms2)
+            conditional_minterms = self.conditional_minterms(matrix)
+            if conditional_minterms:
+                print("Conditional Minterms: ", conditional_minterms)
 
-            essential_minterms = essential_minterms1.union(essential_minterms2)
-            print("TOTAL ESSENTIAL ROW IDXS: ", essential_minterms)
-            matrix_minterms = matrix.minterms
-            essential_bits = [matrix_minterms[minterm_idx] for minterm_idx in essential_minterms]
-
-            print("TOTAL ESSENTIAL (MINTERM, BITS): ", essential_bits)
-            return
+                # essential_minterms = essential_minterms.union(conditional_minterms)
+                essential_minterms_results = essential_minterms.join("+")
+                print(essential_minterms_results)
+                minterm_results =  [essential_minterms+ "+" + condition for condition in conditional_minterms]
+                print('Final Minterm Results: ', minterm_results)
+                return minterm_results
+            
         
-    def essential_minterms(self, matrix: minterm_matrix):
+    def conditional_minterms(self, matrix: minterm_matrix):
         current_matrix = matrix.matrix
         # current_prime_implicants = matrix.prime_implicants
         essential_minterms = set()
@@ -69,7 +76,8 @@ class branch_bound_tree:
             row = current_matrix[row_idx, :]
             if np.all(row == 1):
                 essential_minterms.add(row_idx)
-
+            elif np.any(row == 1) and np.any(row ==  0):
+                return
         return essential_minterms
 
     def find_essential_prime_implicants(self, matrix):
