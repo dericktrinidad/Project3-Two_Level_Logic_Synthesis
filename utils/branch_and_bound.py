@@ -1,12 +1,13 @@
 import numpy as np
-
+import copy
 class minterm_matrix:
     def __init__(self, matrix, prime_implicants, minterms):
         self.matrix = matrix #-> np.array matrix 0 or 1
         self.prime_implicants = prime_implicants #-> List of integers
         self.minterms = minterms #-> List of tuples
         self.cost = None #-> integer
-
+        self.essential_pi_table = None
+        self.parent = None
     def __lt__(self, other) -> bool:
         if isinstance(other, minterm_matrix):
             return self.cost < other.cost
@@ -21,39 +22,32 @@ class BB_tree:
         matrix = self.build_minterm_matrix(pi)
 
         print(matrix.matrix)
-        self.final_equation = self.prune_matrix_shell(matrix)
+        self.final_equation = self.simplify_matrix_shell(matrix)
         print(self.final_equation)
 
-    def prune_matrix_shell(self,matrix):
+    def simplify_matrix_shell(self,matrix):
         #TODO: Find essential Prime Implicants in matrix
         print("Remove Essential Prime Implicants")
-        current_minterms = ''
-        while matrix.matrix.any():
-            essential_pi_table, matrix, essential_minterms = self.essential_prime_implicants(matrix)
+        curr_matrix = copy.deepcopy(matrix)
+        current_minterms = []
+        while curr_matrix.matrix.any():
+            next_matrix_node, essential_minterm_idxs= self.essential_prime_implicants(curr_matrix)
             
-            print("Next Matrix: \n", matrix.matrix)
-            print("Next Prime Implicants: ", matrix.prime_implicants)
-            print("Essential Prime Implicants", essential_pi_table)
-            print("Essential Minterms1: ", essential_minterms)
-            for minterms_col in essential_pi_table.values():
-                minterm_str = ''.join(str(num for num in minterms_col.flatten()))
-                current_minterms += minterm_str
-            #TODO: Prune matrix
-            print("Prune matrix using col dominance")
-            matrix = self.prune_matrix(matrix, essential_pi_table)
-            print("Next Matrix: \n", matrix.matrix)
-            print("Next Prime Implicants: \n", matrix.prime_implicants)
+            print("Next Matrix: \n", next_matrix_node.matrix)
+            for minterms_idx in essential_minterm_idxs:
+                minterm = next_matrix_node.parent.minterms[minterms_idx]
+                print(minterm)
+                current_minterms.append(minterm[1])
+
+            print("Current Minterms: ", '+'.join(current_minterms))
+
             conditional_minterms = self.conditional_minterms(matrix)
             if conditional_minterms:
                 print("Conditional Minterms: ", conditional_minterms)
-
-                # essential_minterms = essential_minterms.union(conditional_minterms)
-                essential_minterms_results = essential_minterms.join("+")
-                print(essential_minterms_results)
-                minterm_results =  [essential_minterms+ "+" + condition for condition in conditional_minterms]
+                minterm_results =  [current_minterms + "+" + condition for condition in conditional_minterms]
                 print('Final Minterm Results: ', minterm_results)
                 return minterm_results
-            return
+            return current_minterms
             
     def conditional_minterms(self, matrix: minterm_matrix):
         current_matrix = matrix.matrix
@@ -105,25 +99,26 @@ class BB_tree:
                 row[row_idx] = 1
         return minterm_matrix(matrix, self.prime_implicants, minterm_table_sorted)
     
-    def prune_matrix(self, matrix: minterm_matrix, essential_pi_table)-> np.array:
+    def prune_matrix(self, matrix: minterm_matrix, essential_pi_idx)-> np.array:
         current_matrix = matrix.matrix
         current_prime_implicants = matrix.prime_implicants
-        intersections = set()
-        for curr_col_idx, ess_col in essential_pi_table.items():
-            ess_col_indicies = np.where(ess_col == 1)[0]
-            ess_col_indicies_set = set(ess_col_indicies)
-            for col_idx in range(current_matrix.shape[1]):
-                if curr_col_idx == col_idx: continue
-                col = current_matrix[:, col_idx]
-                col_indicies = set(np.where(col == 1)[0])
-                intersection = ess_col_indicies_set.intersection(col_indicies)
-                if intersection:
-                    intersections.add(col_idx)
+        current_minterms = matrix.minterms
+        col_dominance = set()
+        print("Essential_pi_idx: ", essential_pi_idx)
+        for row_idx in essential_pi_idx:
+            ess_row = current_matrix[row_idx, :]
+            ess_col_indicies = set(np.where(ess_row == 1)[0])
+            print("essentical col_inidicies",ess_col_indicies)
+            col_dominance.update(ess_col_indicies)
 
-        if intersections:
-            next_matrix = np.delete(current_matrix, list(intersections), axis=1)
-            next_prime_implicants = np.delete(current_prime_implicants, list(intersections), axis = 0)
-        return minterm_matrix(next_matrix, next_prime_implicants, matrix.minterms)
+        print("Column Dominance: ", col_dominance)
+        next_matrix = np.delete(current_matrix, list(col_dominance), axis=1)
+        next_prime_implicants = np.delete(current_prime_implicants, list(col_dominance), axis = 0)
+
+        non_zero_rows = np.any(next_matrix != 0, axis=1)
+        next_matrix = next_matrix[non_zero_rows]
+        next_minterms = [pi for idx, pi in enumerate(current_minterms) if idx in set(non_zero_rows) ]
+        return minterm_matrix(next_matrix, next_prime_implicants, next_minterms)
 
     def essential_prime_implicants(self, matrix: minterm_matrix) -> tuple:
         current_matrix = matrix.matrix
@@ -132,11 +127,26 @@ class BB_tree:
         col_sums = np.sum(current_matrix, axis = 0)
         min_col_sums = min(col_sums)
         essential_column_idx = np.where(col_sums == min_col_sums)[0]
-        essential_minterm_idxs = set(np.where(current_matrix[:, col_idx] == min_col_sums)[0][0] for col_idx in essential_column_idx)
+        essential_minterms_idxs = set(np.where(current_matrix[:, col_idx] == min_col_sums)[0][0] for col_idx in essential_column_idx)
         essential_column_idx_table = {index: current_matrix[:,index] for index in essential_column_idx}
+        matrix.essential_pi_table = essential_column_idx_table
         next_matrix = np.delete(current_matrix, essential_column_idx, axis = 1)
-        next_prime_implicants = np.delete(current_prime_implicants, essential_column_idx, axis = 0)
-        return essential_column_idx_table, minterm_matrix(next_matrix, next_prime_implicants, current_minterms), essential_minterm_idxs
+        col_dominance = set()
+
+        for row_idx in essential_minterms_idxs:
+            ess_row = current_matrix[row_idx, :]
+            ess_col_indicies = set(np.where(ess_row == 1)[0])
+            col_dominance.update(ess_col_indicies)
+        col_dominance.update(set(essential_column_idx))
+        next_matrix = np.delete(current_matrix, list(col_dominance), axis=1)
+        next_prime_implicants = np.delete(current_prime_implicants, list(col_dominance), axis = 0)
+
+        non_zero_rows = np.any(next_matrix != 0, axis=1)
+        next_matrix = next_matrix[non_zero_rows]
+        next_minterms = [pi for idx, pi in enumerate(current_minterms) if idx in set(non_zero_rows) ]
+        next_matrix_node = minterm_matrix(next_matrix, next_prime_implicants, next_minterms)
+        next_matrix_node.parent = matrix
+        return next_matrix_node, essential_minterms_idxs
     
     
         
