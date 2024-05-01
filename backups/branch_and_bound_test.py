@@ -23,34 +23,37 @@ class BB_tree:
         #TODO: Find essential Prime Implicants in matrix
         print("Remove Essential Prime Implicants")
         curr_matrix_node = copy.deepcopy(matrix)
-        next_matrix_node, next_minterms  = self.reduce_matrix(curr_matrix_node, current_minterms)
+        next_matrix_node = self.reduce_matrix(curr_matrix_node)
         print("Next Matrix: \n", next_matrix_node.matrix)
-        print("Next Minterms: \n", next_minterms)
+        parent_node = next_matrix_node.parent
+        for minterms_idx in parent_node.essential_minterm_idxs:
+            minterm = parent_node.minterms[minterms_idx]
+            current_minterms.append(minterm)
+        print("Current Minterms: ", current_minterms)
+        curr_cost = self.cost_function(next_matrix_node.matrix)
+        if (len(next_matrix_node.prime_implicants) == 1): #Terminal Case
+            if (curr_cost < best_cost):
+                best_cost = curr_cost
+                return next_matrix_node
+            else:
+                return None # No solution for this branch
+        else: # not terminal case
+            LB = self.MiS_quick()
+            if (LB + curr_cost > best_cost): return None #No solution on this branch
+            else: #solution found
+                S1 = self.BCP(next_matrix_node, best_cost=best_cost, current_minterms=current_minterms)
+                S1_cost = self.cost_function(S1.matrix)
+                if(S1_cost == LB): return S1
+                else:
+                    S0 = self.BCP(next_matrix_node, best_cost=best_cost, current_minterms=current_minterms)
+                    return S
 
-        # curr_cost = self.cost_function(next_matrix_node.matrix)
-        # if (len(next_matrix_node.prime_implicants) == 1): #Terminal Case
-        #     if (curr_cost < best_cost):
-        #         best_cost = curr_cost
-        #         return next_matrix_node
-        #     else:
-        #         return None # No solution for this branch
-        # else: # not terminal case
-        #     LB = self.MiS_quick()
-        #     if (LB + curr_cost > best_cost): return None #No solution on this branch
-        #     else: #solution found
-        #         S1 = self.BCP(next_matrix_node, best_cost=best_cost, current_minterms=current_minterms)
-        #         S1_cost = self.cost_function(S1.matrix)
-        #         if(S1_cost == LB): return S1
-        #         else:
-        #             S0 = self.BCP(next_matrix_node, best_cost=best_cost, current_minterms=current_minterms)
-        #             return S
-
-        conditional_minterms = self.conditional_minterms(matrix)
-        if conditional_minterms:
-            print("Conditional Minterms: ", conditional_minterms)
-            minterm_results =  [current_minterms + "+" + condition for condition in conditional_minterms]
-            print('Final Minterm Results: ', minterm_results)
-            return minterm_results
+        # conditional_minterms = self.conditional_minterms(matrix)
+        # if conditional_minterms:
+        #     print("Conditional Minterms: ", conditional_minterms)
+        #     minterm_results =  [current_minterms + "+" + condition for condition in conditional_minterms]
+        #     print('Final Minterm Results: ', minterm_results)
+        #     return minterm_results
     def cost_function(matrix:np.array):
         return np.sum(matrix)
     
@@ -132,7 +135,7 @@ class BB_tree:
         next_minterms = [pi for idx, pi in enumerate(current_minterms) if idx in set(non_zero_rows) ]
         return minterm_matrix(next_matrix, next_prime_implicants, next_minterms)
 
-    def reduce_matrix(self, matrix: minterm_matrix, current_minterm_equation) -> tuple:
+    def reduce_matrix(self, matrix: minterm_matrix) -> tuple:
         current_matrix = matrix.matrix
         current_prime_implicants = matrix.prime_implicants
         current_minterms = matrix.minterms
@@ -159,11 +162,7 @@ class BB_tree:
         next_minterms = [pi for idx, pi in enumerate(current_minterms) if idx in set(non_zero_rows) ]
         next_matrix_node = minterm_matrix(next_matrix, next_prime_implicants, next_minterms)
         next_matrix_node.parent = matrix
-
-        for minterms_idx in matrix.essential_minterm_idxs:
-            minterm = matrix.minterms[minterms_idx]
-            current_minterm_equation.append(minterm)
-        return next_matrix_node, current_minterms
+        return next_matrix_node
     
     
         
