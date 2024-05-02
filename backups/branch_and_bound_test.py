@@ -114,26 +114,26 @@ class BB_tree:
                 row[row_idx] = 1
         return minterm_matrix(matrix, self.prime_implicants, minterm_table_sorted)
     
-    def prune_matrix(self, matrix: minterm_matrix, essential_pi_idx)-> np.array:
-        current_matrix = matrix.matrix
-        current_prime_implicants = matrix.prime_implicants
-        current_minterms = matrix.minterms
-        col_dominance = set()
-        print("Essential_pi_idx: ", essential_pi_idx)
-        for row_idx in essential_pi_idx:
-            ess_row = current_matrix[row_idx, :]
-            ess_col_indicies = set(np.where(ess_row == 1)[0])
-            print("essentical col_inidicies",ess_col_indicies)
-            col_dominance.update(ess_col_indicies)
+    # def prune_matrix(self, matrix: minterm_matrix, essential_pi_idx)-> np.array:
+    #     current_matrix = matrix.matrix
+    #     current_prime_implicants = matrix.prime_implicants
+    #     current_minterms = matrix.minterms
+    #     col_dominance = set()
+    #     print("Essential_pi_idx: ", essential_pi_idx)
+    #     for row_idx in essential_pi_idx:
+    #         ess_row = current_matrix[row_idx, :]
+    #         ess_col_indicies = set(np.where(ess_row == 1)[0])
+    #         print("essentical col_inidicies",ess_col_indicies)
+    #         col_dominance.update(ess_col_indicies)
 
-        print("Column Dominance: ", col_dominance)
-        next_matrix = np.delete(current_matrix, list(col_dominance), axis=1)
-        next_prime_implicants = np.delete(current_prime_implicants, list(col_dominance), axis = 0)
+    #     print("Column Dominance: ", col_dominance)
+    #     next_matrix = np.delete(current_matrix, list(col_dominance), axis=1)
+    #     next_prime_implicants = np.delete(current_prime_implicants, list(col_dominance), axis = 0)
 
-        non_zero_rows = np.any(next_matrix != 0, axis=1)
-        next_matrix = next_matrix[non_zero_rows]
-        next_minterms = [pi for idx, pi in enumerate(current_minterms) if idx in set(non_zero_rows) ]
-        return minterm_matrix(next_matrix, next_prime_implicants, next_minterms)
+    #     non_zero_rows = np.any(next_matrix != 0, axis=1)
+    #     next_matrix = next_matrix[non_zero_rows]
+    #     next_minterms = [pi for idx, pi in enumerate(current_minterms) if idx in set(non_zero_rows) ]
+    #     return minterm_matrix(next_matrix, next_prime_implicants, next_minterms)
 
     def reduce_matrix(self, matrix: minterm_matrix) -> tuple:
         current_matrix = matrix.matrix
