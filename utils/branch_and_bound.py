@@ -17,7 +17,8 @@ class BB_tree:
         self.prime_implicants = prime_implicants
         matrix = self.build_minterm_matrix(pi)
         print(matrix.matrix)
-        self.final_equation = self.BCP(matrix)
+        self.final_node, self.final_equation = self.BCP(matrix)
+        print("FINAL EQUATION: ", self.final_equation)
 
     def BCP(self,matrix, best_cost=float('inf'), current_logic_equation = []):
         #TODO: Find essential Prime Implicants in matrix
@@ -34,9 +35,9 @@ class BB_tree:
         if (len(next_matrix_node.minterms) <= 1 or next_matrix.size == 0): #Terminal Case
             if (next_upperbound_cost < best_cost):
                 best_cost = next_upperbound_cost
-                return next_matrix_node
+                return next_matrix_node, next_logic_equation
             else:
-                return None # No solution for this branch
+                return None, next_logic_equation # No solution for this branch
         else: # not terminal case
             next_lowerbound_cost = len(self.MiS_quick(next_matrix))
             if (next_lowerbound_cost + next_upperbound_cost > best_cost): return None #No solution on this branch
@@ -45,15 +46,15 @@ class BB_tree:
 
             S1_node, S1_equation, S0_node, S0_equation = self.split_logic_matrix(matrix, Pi, current_logic_equation)
             #solution found
-            S1_bcp = self.BCP(S1_node, best_cost=best_cost, current_logic_equation=S1_equation)
+            S1_bcp, S1_logic_eq = self.BCP(S1_node, best_cost=best_cost, current_logic_equation=S1_equation)
             S1_cost = self.upperbound_cost(S0_bcp.matrix) if S1_bcp is not None else float('inf')
-            if S1_cost == next_lowerbound_cost: return S1_bcp
-            S0_bcp = self.BCP(S0_node, best_cost=best_cost, current_logic_equation=S0_equation)
+            if S1_cost == next_lowerbound_cost: return S1_bcp, S1_logic_eq
+            S0_bcp, S0_logic_eq = self.BCP(S0_node, best_cost=best_cost, current_logic_equation=S0_equation)
             S0_cost = self.upperbound_cost(S0_bcp.matrix) if S0_bcp is not None else float('inf')
             if S1_cost < S0_cost: 
-                return S0_bcp
+                return S1_bcp, S1_logic_eq
             else: 
-                return S0_bcp
+                return S0_bcp, S0_logic_eq
     
     def MiS_quick(self, matrix:np.array):
         MiS = set()
@@ -217,13 +218,11 @@ class BB_tree:
             ess_row = curr_matrix[row_idx, :]
             col_dominance.update(np.where(ess_row == 1)[0])
         next_matrix = np.delete(curr_matrix, list(col_dominance), axis=1)
-        print("Next Matrix After Reduce: \n", next_matrix)
-        print("next matrix type: \n", type(next_matrix))
         next_prime_implicants = np.delete(curr_prime_implicants, list(col_dominance), axis=0)
-        # non_zero_rows = np.any(next_matrix != 0, axis=1)
-        # next_matrix = next_matrix[non_zero_rows]
-        # next_minterms = [minterm for idx, minterm in enumerate(curr_minterms) if non_zero_rows[idx]]
-        return next_matrix, next_prime_implicants, curr_minterms, essential_minterms_idxs
+        non_zero_rows = np.any(next_matrix != 0, axis=1)
+        next_matrix = next_matrix[non_zero_rows]
+        next_minterms = [minterm for idx, minterm in enumerate(curr_minterms) if non_zero_rows[idx]]
+        return next_matrix, next_prime_implicants, next_minterms, essential_minterms_idxs
 
 
     def minterm_dominance(self, curr_matrix:np.array, curr_prime_implicants:list, curr_minterms:list):
