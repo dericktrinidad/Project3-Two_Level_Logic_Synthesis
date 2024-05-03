@@ -32,87 +32,104 @@ class BB_tree:
         print("Next Matrix: \n", next_matrix)
         print("Next Minterms: \n", next_logic_equation)
 
-        # upperbound_cost = self.upperbound_cost(next_matrix)
-        # if (len(next_matrix_node.prime_implicants) == 1): #Terminal Case
-        #     if (upperbound_cost < best_cost):
-        #         best_cost = upperbound_cost
-        #         return next_matrix_node
-        #     else:
-        #         return None # No solution for this branch
-        # else: # not terminal case
-        #     lower_bound_cost = len(self.MiS_quick(next_matrix))
-        #     if (lower_bound_cost + upperbound_cost > best_cost): return None #No solution on this branch
+        next_upperbound_cost = self.upperbound_cost(next_matrix)
+        if (len(next_matrix_node.minterms) == 1): #Terminal Case
+            if (next_upperbound_cost < best_cost):
+                best_cost = next_upperbound_cost
+                return next_matrix_node
+            else:
+                return None # No solution for this branch
+        else: # not terminal case
+            next_lowerbound_cost = len(self.MiS_quick(next_matrix))
+            if (next_lowerbound_cost + next_upperbound_cost > best_cost): return None #No solution on this branch
             
-        #     Pi = self.choose_var(next_logic_equation)
-        #     S0_equation, S0_matrix, S1_equation, S1_matrix = self.split_logic_matrix()
-        #     #solution found
-        #     Sol1 = self.BCP(next_matrix_node, best_cost=best_cost, current_logic_equation=S0_equation)
-        #     Sol1_cost = self.upperbound_cost(Sol1.matrix) if Sol1 is not None else float('inf')
-        #     Sol0 = self.BCP(next_matrix_node, best_cost=best_cost, current_logic_equation=S1_equation)
-        #     Sol0_cost = self.upperbound_cost(Sol0.matrix) if Sol0 is not None else float('inf')
-        #     if Sol1_cost < Sol0_cost: 
-        #         return Sol1
-        #     else: 
-        #         return Sol0
+            Pi = self.choose_var(next_logic_equation)
 
-
-
-        # conditional_minterms = self.conditional_minterms(matrix)
-        # if conditional_minterms:
-        #     print("Conditional Minterms: ", conditional_minterms)
-        #     minterm_results =  [current_minterms + "+" + condition for condition in conditional_minterms]
-        #     print('Final Minterm Results: ', minterm_results)
-        #     return minterm_results
+            S1_node, S1_equation, S0_node, S0_equation = self.split_logic_matrix(matrix, Pi, current_logic_equation)
+            #solution found
+            S1_bcp = self.BCP(S1_node, best_cost=best_cost, current_logic_equation=S1_equation)
+            S1_cost = self.upperbound_cost(S0_bcp.matrix) if S1_bcp is not None else float('inf')
+            if S1_cost == next_lowerbound_cost: return S1_bcp
+            S0_bcp = self.BCP(S0_node, best_cost=best_cost, current_logic_equation=S0_equation)
+            S0_cost = self.upperbound_cost(S0_bcp.matrix) if S0_bcp is not None else float('inf')
+            if S1_cost < S0_cost: 
+                return S0_bcp
+            else: 
+                return S0_bcp
     
-    def MiS_quick(matrix:np.array):
+    def MiS_quick(self, matrix:np.array):
         MiS = set()
         matrix = matrix.copy()
-        col_axis = np.arange(matrix.shape[1])
+        row_axis = np.arange(matrix.shape[0])
         while matrix.size > 0 and matrix.shape[1] > 0:
-            # print(matrix)
-            column_sums = np.sum(matrix, axis = 0)
-            min_sum = min(column_sums)
-            min_column_indicies = np.where(column_sums == min_sum)[0]
+            print(matrix)
+            row_sums = np.sum(matrix, axis = 1)
+            min_sum = min(row_sums)
+            min_row_indicies = np.where(row_sums == min_sum)[0]
             
-            best_columns = []
-            for col_idx in min_column_indicies:
-                delete_cols = {col_idx}
-                row_indicies = np.where(matrix[: , col_idx] == 1)[0]
-                for row_idx in row_indicies:
-                    row = matrix[row_idx, :]
-                    col_indicies = np.where(row == 1)[0]
-                    delete_cols.update(set(col_indicies))
-                cols_to_delete = list(delete_cols)
-                col_score = np.sum(matrix[:, cols_to_delete])
-                best_columns.append((col_idx, cols_to_delete, col_score))
+            best_rows = []
+            for row_idx in min_row_indicies:
+                delete_rows = {row_idx}
+                col_indicies = np.where(matrix[row_idx, :] == 1)[0]
+                for col_idx in col_indicies:
+                    row = matrix[:, col_idx]
+                    row_indicies = np.where(row == 1)[0]
+                    delete_rows.update(set(row_indicies))
+                row_to_delete = list(delete_rows)
+                row_score = np.sum(matrix[row_to_delete, :])
+                best_rows.append((row_idx, row_to_delete, row_score))
 
-            selected_column = min(best_columns, key=lambda x: x[2])
-            selected_column_idx, selected_column_to_delete,_  = selected_column
-            MiS.add(col_axis[selected_column_idx])
-            matrix = np.delete(matrix, selected_column_to_delete, axis = 1)
-            col_axis = np.delete(col_axis, selected_column_to_delete)
+            selected_row = min(best_rows, key=lambda x: x[2])
+            selected_row_idx, selected_row_to_delete, _  = selected_row
+            # print("selected column ", row_axis[selected_row_idx])
+            MiS.add(row_axis[selected_row_idx])
+            # print("cols to delete: ", [row_axis[idx] for idx in selected_row_to_delete])
+            matrix = np.delete(matrix, selected_row_to_delete, axis = 0)
+            row_axis = np.delete(row_axis, selected_row_to_delete)
         return MiS
-    
-    def choose_var(matrix):
-        row_zi = []
-        for row_idx in range(matrix.shape[0]):
-            row = matrix[row_idx, :]
-            zi = 1 / (len(np.sum(row)) - 1)
-            row_zi.append(zi)
-        col_weights = []
+
+    def choose_var(self, matrix:np.array):
+        col_zi = []
         for col_idx in range(matrix.shape[1]):
-            col = matrix[:, col_idx]
-            col_ones = np.where(col == 1)[0]
-            weight = np.sum([row_zi[ones_idx] for ones_idx in col_ones])
-            col_weights.append(weight)
-        max_weight = max(col_weights)
-        selected_columns = [col_idx for col_idx, weight in enumerate(col_weights) if weight == max_weight]
+            col = matrix[col_idx, :]
+            zi = 1 / (np.sum(col) - 1)
+            col_zi.append(zi)
+
+        row_weights = []
+        for row_idx in range(matrix.shape[0]):
+            row = matrix[:, row_idx]
+            row_ones = np.where(row == 1)[0]
+            weight = np.sum([col_zi[ones_idx] for ones_idx in row_ones])
+            row_weights.append(weight)
+        max_weight = max(row_weights)
+        print(max_weight)
+        selected_columns = [col_idx for col_idx, weight in enumerate(row_weights) if weight == max_weight]
+        print(selected_columns)
         return random.choice(selected_columns)
 
 
-    def split_logic_matrix(self, logic_equation, matrix, var_index):
-        S0_equation, S0_matrix, S1_equation, S1_matrix = [], [], [], []
-        return S0_equation, S0_matrix, S1_equation, S1_matrix
+    def split_logic_matrix(self, matrix: minterm_matrix, Pi, curr_equation):
+        curr_matrix = matrix.matrix
+        curr_prime_implicants = matrix.prime_implicants
+        
+        next_matrix = np.delete(curr_matrix, Pi, axis=0)
+        Pi_column = next_matrix[:, Pi]  
+        S1_indicies = np.where(Pi_column == 0)[0]
+        S1_prime_implicants = [curr_prime_implicants[s1_idx] for s1_idx in  S1_indicies]
+        S1_equation = [curr_prime_implicants[Pi]]
+        S1_equation.extend(curr_equation)
+        S1_matrix = next_matrix[S1_indicies, :]
+        S1_node = minterm_matrix(S1_matrix, S1_prime_implicants, matrix.minterms)
+
+        S0_indicies = np.where(Pi_column == 1)[0]
+        # S0_equation = [curr_prime_implicants[s0_idx] for s0_idx in  S0_indicies]
+        S0_prime_implicants = [curr_prime_implicants[s0_idx] for s0_idx in S0_indicies]
+        S0_equation = [curr_prime_implicants[Pi]]
+        S0_equation.extend(curr_equation)
+        S0_matrix = next_matrix[S0_indicies, :]
+        S0_node = minterm_matrix(S0_matrix, S0_prime_implicants, matrix.minterms) 
+        # S0_equation, S0_matrix, S1_equation, S1_matrix
+        return S1_node, S1_equation, S0_node, S0_equation
     
     def upperbound_cost(self, matrix:np.array):
         return matrix.shape[1] + 1
@@ -126,7 +143,6 @@ class BB_tree:
 
     def conditional_minterms(self, matrix: minterm_matrix):
         current_matrix = matrix.matrix
-        # current_prime_implicants = matrix.prime_implicants
         essential_minterms = set()
         for row_idx in range(current_matrix.shape[0]):
             row = current_matrix[row_idx, :]
@@ -154,9 +170,6 @@ class BB_tree:
         current_pi_table = pi.pi_table
         parent_pi_table = pi.parent.pi_table
         leftover_minterms = pi.parent.leftover_check
-        
-        print('leftover_minterms: ', leftover_minterms)
-        # current_minterms = set(minterm for minterms in current_pi_table.values() for minterm in minterms.keys())
         current_minterm_table = [(minterm, bits) for minterms in current_pi_table.values() for minterm, bits in minterms.items()]
         if leftover_minterms:
             leftover_minterm_table = [(minterm, bits) for minterms in parent_pi_table.values() for minterm, bits in minterms.items() if minterm in leftover_minterms]
@@ -174,76 +187,57 @@ class BB_tree:
                 row[row_idx] = 1
         return minterm_matrix(matrix, self.prime_implicants, minterm_table_sorted)
     
-    def prune_matrix(self, matrix: minterm_matrix, essential_pi_idx)-> np.array:
-        current_matrix = matrix.matrix
-        current_prime_implicants = matrix.prime_implicants
-        current_minterms = matrix.minterms
-        col_dominance = set()
-        print("Essential_pi_idx: ", essential_pi_idx)
-        for row_idx in essential_pi_idx:
-            ess_row = current_matrix[row_idx, :]
-            ess_col_indicies = set(np.where(ess_row == 1)[0])
-            print("essentical col_inidicies",ess_col_indicies)
-            col_dominance.update(ess_col_indicies)
-
-        print("Column Dominance: ", col_dominance)
-        next_matrix = np.delete(current_matrix, list(col_dominance), axis=1)
-        next_prime_implicants = np.delete(current_prime_implicants, list(col_dominance), axis = 0)
-
-        non_zero_rows = np.any(next_matrix != 0, axis=1)
-        next_matrix = next_matrix[non_zero_rows]
-        next_minterms = [pi for idx, pi in enumerate(current_minterms) if idx in set(non_zero_rows) ]
-        return minterm_matrix(next_matrix, next_prime_implicants, next_minterms)
-
-    def reduce_matrix(self, matrix: minterm_matrix, current_minterm_equation) -> tuple:
-        current_matrix = matrix.matrix
-        current_prime_implicants = matrix.prime_implicants
-        current_minterms = matrix.minterms
-        col_sums = np.sum(current_matrix, axis = 0)
-        min_col_sums = min(col_sums)
-        essential_column_idx = np.where(col_sums == min_col_sums)[0]
-        essential_minterms_idxs = set(np.where(current_matrix[:, col_idx] == min_col_sums)[0][0] for col_idx in essential_column_idx)
-        essential_column_idx_table = {index: current_matrix[:,index] for index in essential_column_idx}
-        matrix.essential_pi_table = essential_column_idx_table
-        matrix.essential_minterm_idxs = essential_minterms_idxs
-        next_matrix = np.delete(current_matrix, essential_column_idx, axis = 1)
-        col_dominance = set(essential_column_idx.copy())
-        for row_idx in essential_minterms_idxs:
-            ess_row = current_matrix[row_idx, :]
-            ess_col_indicies = set(np.where(ess_row == 1)[0])
-            col_dominance.update(ess_col_indicies)
-        next_matrix = np.delete(current_matrix, list(col_dominance), axis=1)
-        next_prime_implicants = np.delete(current_prime_implicants, list(col_dominance), axis = 0)
-        non_zero_rows = np.any(next_matrix != 0, axis=1)
-        next_matrix = next_matrix[non_zero_rows]
-        next_minterms = [pi for idx, pi in enumerate(current_minterms) if idx in set(non_zero_rows) ]
-        next_matrix_node = minterm_matrix(next_matrix, next_prime_implicants, next_minterms)
-        next_matrix_node.parent = matrix
-        for minterms_idx in matrix.essential_minterm_idxs:
-            minterm = matrix.minterms[minterms_idx]
-            current_minterm_equation.append(minterm)
-        return next_matrix_node, current_minterm_equation
-    
     def optimize_matrix_processing(self, matrix: minterm_matrix, current_minterm_equation = []):
         current_matrix = matrix.matrix
         col_sums = np.sum(current_matrix, axis=0)
-        min_col_sums = np.min(col_sums)
-        essential_column_idx = np.where(col_sums == min_col_sums)[0]
-        essential_minterms_idxs = set(np.where(current_matrix[:, col_idx] == min_col_sums)[0][0] for col_idx in essential_column_idx)
-        essential_column_idx_table = {index: current_matrix[:, index] for index in essential_column_idx}
-        matrix.essential_pi_table = essential_column_idx_table
-        matrix.essential_minterm_idxs = set(essential_minterms_idxs)
-        col_dominance = set(essential_column_idx)
-        for row_idx in essential_minterms_idxs:
-            ess_row = current_matrix[row_idx, :]
-            col_dominance.update(np.where(ess_row == 1)[0])
-        next_matrix = np.delete(current_matrix, list(col_dominance), axis=1)
-        next_prime_implicants = np.delete(matrix.prime_implicants, list(col_dominance), axis=0)
-        non_zero_rows = np.any(next_matrix != 0, axis=1)
-        next_matrix = next_matrix[non_zero_rows]
-        next_minterms = [minterm for idx, minterm in enumerate(matrix.minterms) if non_zero_rows[idx]]
-        next_matrix_node = minterm_matrix(next_matrix, next_prime_implicants, next_minterms)
+        if np.any(col_sums == 1):
+            essential_column_idx = np.where(col_sums == 1)[0]
+            essential_minterms_idxs = set(np.where(current_matrix[:, col_idx] == 1)[0][0] for col_idx in essential_column_idx)
+            col_dominance = set(essential_column_idx)
+            for row_idx in essential_minterms_idxs:
+                ess_row = current_matrix[row_idx, :]
+                col_dominance.update(np.where(ess_row == 1)[0])
+            next_matrix = np.delete(current_matrix, list(col_dominance), axis=1)
+            next_prime_implicants = np.delete(matrix.prime_implicants, list(col_dominance), axis=0)
+            non_zero_rows = np.any(next_matrix != 0, axis=1)
+            next_matrix = next_matrix[non_zero_rows]
+            next_minterms = [minterm for idx, minterm in enumerate(matrix.minterms) if non_zero_rows[idx]]
+        else:
+            next_matrix = current_matrix.copy()
+            next_prime_implicants = matrix.prime_implicants.copy()
+            next_minterms = matrix.minterms.copy()
+        # next_matrix_node = minterm_matrix(next_matrix, next_prime_implicants, next_minterms)
+        rd_next_matrix, rd_prime_implicants, rd_minterms = self.row_dominance(next_matrix, next_prime_implicants, next_minterms)
+        next_matrix_node = minterm_matrix(rd_next_matrix, rd_prime_implicants, rd_minterms)
         next_matrix_node.parent = matrix
-        current_minterm_equation = [matrix.minterms[idx] for idx in matrix.essential_minterm_idxs]
+        current_minterm_equation.extend(matrix.minterms[idx] for idx in essential_minterms_idxs)
         return next_matrix_node, current_minterm_equation
+    
+    def row_dominance(self, curr_matrix, curr_prime_implicants, curr_minterms):
+        # curr_matrix = matrix_node.matrix
+        # curr_minterms =matrix_node.minterms.copy()
+        unique_rows = set()
+        row_sums = np.sum(curr_matrix, axis = 1)
+        rows_to_delete = set()
+        for i in range(curr_matrix.shape[0]):
             
+            row_i = curr_matrix[i, :]
+            if tuple(row_i) in unique_rows:
+                        rows_to_delete.add(i)
+                        continue
+            
+            for j in range(curr_matrix.shape[0]):
+                if i == j: continue
+                if row_sums[i] < row_sums[j] and self.check_dominance(curr_matrix[i, :], curr_matrix[j, :]):
+                    rows_to_delete.add(i)
+                elif row_sums[i] > row_sums[j] and self.check_dominance(curr_matrix[j, :], curr_matrix[i, :]):
+                    rows_to_delete.add(j)
+        delete_rows = set(rows_to_delete)
+        next_matrix = np.delete(curr_matrix, delete_rows, axis=0)
+        next_minterm = np.delete(curr_minterms, delete_rows)
+        return next_matrix, curr_prime_implicants, next_minterm
+    
+    def check_dominance(self, row1, row2):
+        return np.all((row1|row2) == row2)
+    
+
