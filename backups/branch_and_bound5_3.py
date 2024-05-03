@@ -32,30 +32,30 @@ class BB_tree:
         print("Next Matrix: \n", next_matrix)
         print("Next Minterms: \n", next_logic_equation)
 
-        next_upperbound_cost = self.upperbound_cost(next_matrix)
-        if (len(next_matrix_node.minterms) == 1 or next_matrix.size < 0): #Terminal Case
-            if (next_upperbound_cost < best_cost):
-                best_cost = next_upperbound_cost
-                return next_matrix_node
-            else:
-                return None # No solution for this branch
-        else: # not terminal case
-            next_lowerbound_cost = len(self.MiS_quick(next_matrix))
-            if (next_lowerbound_cost + next_upperbound_cost > best_cost): return None #No solution on this branch
+        # next_upperbound_cost = self.upperbound_cost(next_matrix)
+        # if (len(next_matrix_node.minterms) == 1): #Terminal Case
+        #     if (next_upperbound_cost < best_cost):
+        #         best_cost = next_upperbound_cost
+        #         return next_matrix_node
+        #     else:
+        #         return None # No solution for this branch
+        # else: # not terminal case
+        #     next_lowerbound_cost = len(self.MiS_quick(next_matrix))
+        #     if (next_lowerbound_cost + next_upperbound_cost > best_cost): return None #No solution on this branch
             
-            Pi = self.choose_var(next_logic_equation)
+        #     Pi = self.choose_var(next_logic_equation)
 
-            S1_node, S1_equation, S0_node, S0_equation = self.split_logic_matrix(matrix, Pi, current_logic_equation)
-            #solution found
-            S1_bcp = self.BCP(S1_node, best_cost=best_cost, current_logic_equation=S1_equation)
-            S1_cost = self.upperbound_cost(S0_bcp.matrix) if S1_bcp is not None else float('inf')
-            if S1_cost == next_lowerbound_cost: return S1_bcp
-            S0_bcp = self.BCP(S0_node, best_cost=best_cost, current_logic_equation=S0_equation)
-            S0_cost = self.upperbound_cost(S0_bcp.matrix) if S0_bcp is not None else float('inf')
-            if S1_cost < S0_cost: 
-                return S0_bcp
-            else: 
-                return S0_bcp
+        #     S1_node, S1_equation, S0_node, S0_equation = self.split_logic_matrix(matrix, Pi, current_logic_equation)
+        #     #solution found
+        #     S1_bcp = self.BCP(S1_node, best_cost=best_cost, current_logic_equation=S1_equation)
+        #     S1_cost = self.upperbound_cost(S0_bcp.matrix) if S1_bcp is not None else float('inf')
+        #     if S1_cost == next_lowerbound_cost: return S1_bcp
+        #     S0_bcp = self.BCP(S0_node, best_cost=best_cost, current_logic_equation=S0_equation)
+        #     S0_cost = self.upperbound_cost(S0_bcp.matrix) if S0_bcp is not None else float('inf')
+        #     if S1_cost < S0_cost: 
+        #         return S0_bcp
+        #     else: 
+        #         return S0_bcp
     
     def MiS_quick(self, matrix:np.array):
         MiS = set()
@@ -191,41 +191,54 @@ class BB_tree:
         current_matrix = matrix.matrix
         current_prime_implicants = matrix.prime_implicants
         current_minterms =  matrix.minterms
-        essential_minterms_idxs = set()
-        while True:
-            col_sums = np.sum(current_matrix, axis=0)
-            if not np.any(col_sums == 1):
-                break
-            minterm_lookup = current_minterms.copy()
-            current_matrix, current_prime_implicants, current_minterms, essential_minterm_update = self.reduce_matrix(
-                        current_matrix, current_prime_implicants, current_minterms)
-            essential_minterms_idxs.update(minterm_lookup[idx] for idx in essential_minterm_update)
-            if current_matrix.size < 0:
-                break
-            current_matrix, current_prime_implicants, current_minterms = self.minterm_dominance(
-                        current_matrix, current_prime_implicants, current_minterms)
-
-        next_matrix_node = minterm_matrix(current_matrix, current_prime_implicants, current_minterms)
+        col_sums = np.sum(current_matrix, axis=0)
+        if np.any(col_sums == 1):
+            essential_column_idx = np.where(col_sums == 1)[0]
+            essential_minterms_idxs = set(np.where(current_matrix[:, col_idx] == 1)[0][0] for col_idx in essential_column_idx)
+            col_dominance = set(essential_column_idx)
+            for row_idx in essential_minterms_idxs:
+                ess_row = current_matrix[row_idx, :]
+                col_dominance.update(np.where(ess_row == 1)[0])
+            next_matrix = np.delete(current_matrix, list(col_dominance), axis=1)
+            next_prime_implicants = np.delete(current_prime_implicants, list(col_dominance), axis=0)
+            non_zero_rows = np.any(next_matrix != 0, axis=1)
+            next_matrix = next_matrix[non_zero_rows]
+            next_minterms = [minterm for idx, minterm in enumerate(current_minterms) if non_zero_rows[idx]]
+        else:
+            next_matrix = current_matrix.copy()
+            next_prime_implicants = matrix.prime_implicants.copy()
+            next_minterms = current_minterms.copy()
+        print("Matrix After Essential Check: ")
+        print(next_matrix)
+        # next_matrix_node = minterm_matrix(next_matrix, next_prime_implicants, next_minterms)
+        md_next_matrix, md_prime_implicants, md_minterms = self.minterm_dominance(next_matrix, next_prime_implicants, next_minterms)
+        print("Matrix After Minterm Dominance: ")
+        print(md_next_matrix)
+        print("minterms After Minterm Dominance: ")
+        print(md_minterms)
+        next_matrix_node = minterm_matrix(md_next_matrix, md_prime_implicants, md_minterms)
         next_matrix_node.parent = matrix
-        current_minterm_equation.extend(essential_minterms_idxs)
+        current_minterm_equation.extend(current_minterms[idx] for idx in essential_minterms_idxs)
         return next_matrix_node, current_minterm_equation
     
     def reduce_matrix(self, curr_matrix:np.array, curr_prime_implicants:np.array, curr_minterms:np.array):
-        col_sums = np.sum(curr_matrix, axis=0)
-        essential_column_idx = np.where(col_sums == 1)[0]
-        essential_minterms_idxs = set(np.where(curr_matrix[:, col_idx] == 1)[0][0] for col_idx in essential_column_idx)
-        col_dominance = set(essential_column_idx)
-        for row_idx in essential_minterms_idxs:
-            ess_row = curr_matrix[row_idx, :]
-            col_dominance.update(np.where(ess_row == 1)[0])
-        next_matrix = np.delete(curr_matrix, list(col_dominance), axis=1)
-        print("Next Matrix After Reduce: \n", next_matrix)
-        print("next matrix type: \n", type(next_matrix))
-        next_prime_implicants = np.delete(curr_prime_implicants, list(col_dominance), axis=0)
-        # non_zero_rows = np.any(next_matrix != 0, axis=1)
-        # next_matrix = next_matrix[non_zero_rows]
-        # next_minterms = [minterm for idx, minterm in enumerate(curr_minterms) if non_zero_rows[idx]]
-        return next_matrix, next_prime_implicants, curr_minterms, essential_minterms_idxs
+        col_sums = np.sum(current_matrix, axis=0)
+        if np.any(col_sums == 1):
+            essential_column_idx = np.where(col_sums == 1)[0]
+            essential_minterms_idxs = set(np.where(current_matrix[:, col_idx] == 1)[0][0] for col_idx in essential_column_idx)
+            col_dominance = set(essential_column_idx)
+            for row_idx in essential_minterms_idxs:
+                ess_row = current_matrix[row_idx, :]
+                col_dominance.update(np.where(ess_row == 1)[0])
+            next_matrix = np.delete(current_matrix, list(col_dominance), axis=1)
+            next_prime_implicants = np.delete(current_prime_implicants, list(col_dominance), axis=0)
+            non_zero_rows = np.any(next_matrix != 0, axis=1)
+            next_matrix = next_matrix[non_zero_rows]
+            next_minterms = [minterm for idx, minterm in enumerate(current_minterms) if non_zero_rows[idx]]
+        else:
+            next_matrix = current_matrix.copy()
+            next_prime_implicants = matrix.prime_implicants.copy()
+            next_minterms = current_minterms.copy()
 
 
     def minterm_dominance(self, curr_matrix:np.array, curr_prime_implicants:list, curr_minterms:list):
@@ -233,10 +246,12 @@ class BB_tree:
         row_sums = np.sum(curr_matrix, axis = 1)
         rows_to_delete = set()
         for i in range(curr_matrix.shape[0]):
+            
             row_i = curr_matrix[i, :]
             if tuple(row_i) in unique_rows:
                         rows_to_delete.add(i)
                         continue
+            
             for j in range(curr_matrix.shape[0]):
                 if i == j: continue
                 if row_sums[i] < row_sums[j] and self.check_dominance(curr_matrix[i, :], curr_matrix[j, :]):
