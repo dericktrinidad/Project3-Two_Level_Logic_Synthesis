@@ -16,10 +16,8 @@ class BB_tree:
     def __init__(self, pi, prime_implicants):
         self.prime_implicants = prime_implicants
         matrix = self.build_minterm_matrix(pi)
-
         print(matrix.matrix)
         self.final_equation = self.BCP(matrix)
-        print(self.final_equation)
 
     def BCP(self,matrix, best_cost=float('inf'), current_logic_equation = []):
         #TODO: Find essential Prime Implicants in matrix
@@ -30,11 +28,11 @@ class BB_tree:
         next_matrix_node, next_logic_equation = self.optimize_matrix_processing(current_matrix_node, current_logic_equation)
         next_matrix = next_matrix_node.matrix
         print("Next Matrix: \n", next_matrix)
-        print("Next Minterms: \n", next_logic_equation)
+        print("Next Logic Equation: \n", next_logic_equation)
 
         next_upperbound_cost = self.upperbound_cost(next_matrix)
-        if (len(next_matrix_node.minterms) == 1 or next_matrix.size < 0): #Terminal Case
-            if (next_upperbound_cost > best_cost):
+        if (len(next_matrix_node.minterms) <= 1 or next_matrix.size == 0): #Terminal Case
+            if (next_upperbound_cost < best_cost):
                 best_cost = next_upperbound_cost
                 return next_matrix_node
             else:
