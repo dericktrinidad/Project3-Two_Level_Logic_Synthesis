@@ -34,7 +34,7 @@ class BB_tree:
 
         next_upperbound_cost = self.upperbound_cost(next_matrix)
         if (len(next_matrix_node.minterms) == 1 or next_matrix.size < 0): #Terminal Case
-            if (next_upperbound_cost < best_cost):
+            if (next_upperbound_cost > best_cost):
                 best_cost = next_upperbound_cost
                 return next_matrix_node
             else:
