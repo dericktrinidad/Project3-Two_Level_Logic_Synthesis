@@ -19,7 +19,8 @@ class BB_tree:
         print(matrix.matrix)
         self.final_node, self.final_equation = self.BCP(matrix)
         print("FINAL EQUATION: ", self.final_equation)
-
+        print("Branch and Bound Algorithm Complete!")
+        
     def BCP(self,matrix, best_cost=float('inf'), current_logic_equation = []):
         #TODO: Find essential Prime Implicants in matrix
         print("Remove Essential Prime Implicants")
