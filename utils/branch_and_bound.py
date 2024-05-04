@@ -31,6 +31,7 @@ class BB_tree:
         if (len(next_matrix_node.minterms) <= 1 or next_matrix.size == 0): #Terminal Case
             if (next_upperbound_cost < best_cost):
                 best_cost = next_upperbound_cost
+                print("Solution Found!")
                 return next_matrix_node, next_logic_equation
             else:
                 return None, next_logic_equation # No solution for this branch
