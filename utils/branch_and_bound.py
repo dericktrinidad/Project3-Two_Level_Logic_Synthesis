@@ -95,14 +95,24 @@ class BB_tree:
         col_zi = []
         for col_idx in range(matrix.shape[1]):
             col = matrix[col_idx, :]
-            zi = 1 / (np.sum(col) - 1)
+            col_sum = np.sum(col)
+            if col_sum > 1:
+                zi = 1 / (col_sum - 1)
+            else:
+                zi = float('inf')
             col_zi.append(zi)
-
+        print("cols zi: ", col_zi)
         row_weights = []
         for row_idx in range(matrix.shape[0]):
-            row = matrix[:, row_idx]
+            row = matrix[row_idx, :]
             row_ones = np.where(row == 1)[0]
-            weight = np.sum([col_zi[ones_idx] for ones_idx in row_ones])
+            print("Row Ones: ", row_ones)
+            # weight = np.sum([col_zi[ones_idx] for ones_idx in row_ones])
+            weight = 0
+            for ones_idx in row_ones:
+                col_zi_sum = col_zi[ones_idx]
+                if not np.isinf(col_zi_sum):
+                    weight += col_zi_sum
             row_weights.append(weight)
         max_weight = max(row_weights)
         selected_columns = [col_idx for col_idx, weight in enumerate(row_weights) if weight == max_weight]
@@ -110,14 +120,16 @@ class BB_tree:
 
 
     def split_logic_matrix(self, matrix: minterm_matrix, Pi, curr_equation):
+        print("PI INDEX: ", Pi)
         curr_matrix = matrix.matrix
+        print("CURRENT_MATRIX: ", )
         curr_prime_implicants = matrix.prime_implicants
         curr_minterms =  matrix.minterms
         next_matrix = np.delete(curr_matrix, Pi, axis=0)
         next_minterms = curr_minterms.copy()
         del next_minterms[Pi]
 
-        Pi_column = next_matrix[:, Pi]
+        Pi_column = curr_matrix[Pi, :]
         S1_indicies = np.where(Pi_column == 1)[0]
 
         S1_equation = [curr_minterms[Pi]]
