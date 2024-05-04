@@ -18,7 +18,7 @@ class BB_tree:
         matrix = self.build_minterm_matrix(pi)
         print(matrix.matrix)
         self.final_node, self.final_equation = self.BCP(matrix)
-        print("FinalL Equation: ", self.final_equation)
+        print("Final Equation: ", self.final_equation)
         self.finalresult(self.final_equation)
         print("Branch and Bound Algorithm Complete!")
 
