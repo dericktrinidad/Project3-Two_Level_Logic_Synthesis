@@ -123,17 +123,15 @@ class BB_tree:
 
         Pi_column = curr_matrix[Pi, :]
         S1_indicies = np.where(Pi_column == 1)[0]
-
         S1_equation = [curr_minterms[Pi]]
         S1_equation.extend(curr_equation)
-        S1_matrix = np.delete(next_matrix, S1_indicies, axis=0)
-        
+        S1_matrix = np.delete(next_matrix, S1_indicies, axis=1)
         S1_minterms = [minterm for idx, minterm in enumerate(next_minterms) if idx not in set(S1_indicies)]
         S1_node = minterm_matrix(S1_matrix, curr_prime_implicants, S1_minterms)
         S0_indicies = np.where(Pi_column == 0)[0]
         S0_equation = []
         S0_equation.extend(curr_equation)
-        S0_matrix = np.delete(next_matrix, S0_indicies, axis=0)
+        S0_matrix = np.delete(next_matrix, S0_indicies, axis=1)
         S0_minterms = [minterm for idx, minterm in enumerate(next_minterms) if idx not in set(S0_indicies)]
         S0_node = minterm_matrix(S0_matrix, curr_prime_implicants, S0_minterms)
         return S1_node, S1_equation, S0_node, S0_equation
