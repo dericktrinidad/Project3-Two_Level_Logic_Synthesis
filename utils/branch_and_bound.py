@@ -65,7 +65,6 @@ class BB_tree:
         matrix = matrix.copy()
         row_axis = np.arange(matrix.shape[0])
         while matrix.size > 0 and matrix.shape[1] > 0:
-            print(matrix)
             row_sums = np.sum(matrix, axis = 1)
             min_sum = min(row_sums)
             min_row_indicies = np.where(row_sums == min_sum)[0]
@@ -84,9 +83,7 @@ class BB_tree:
 
             selected_row = min(best_rows, key=lambda x: x[2])
             selected_row_idx, selected_row_to_delete, _  = selected_row
-            # print("selected column ", row_axis[selected_row_idx])
             MiS.add(row_axis[selected_row_idx])
-            # print("cols to delete: ", [row_axis[idx] for idx in selected_row_to_delete])
             matrix = np.delete(matrix, selected_row_to_delete, axis = 0)
             row_axis = np.delete(row_axis, selected_row_to_delete)
         return MiS
@@ -101,13 +98,10 @@ class BB_tree:
             else:
                 zi = float('inf')
             col_zi.append(zi)
-        print("cols zi: ", col_zi)
         row_weights = []
         for row_idx in range(matrix.shape[0]):
             row = matrix[row_idx, :]
             row_ones = np.where(row == 1)[0]
-            print("Row Ones: ", row_ones)
-            # weight = np.sum([col_zi[ones_idx] for ones_idx in row_ones])
             weight = 0
             for ones_idx in row_ones:
                 col_zi_sum = col_zi[ones_idx]
@@ -120,9 +114,7 @@ class BB_tree:
 
 
     def split_logic_matrix(self, matrix: minterm_matrix, Pi, curr_equation):
-        print("PI INDEX: ", Pi)
         curr_matrix = matrix.matrix
-        print("CURRENT_MATRIX: ", )
         curr_prime_implicants = matrix.prime_implicants
         curr_minterms =  matrix.minterms
         next_matrix = np.delete(curr_matrix, Pi, axis=0)
