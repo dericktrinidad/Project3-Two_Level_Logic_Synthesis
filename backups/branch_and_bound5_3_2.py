@@ -23,9 +23,12 @@ class BB_tree:
 
     def BCP(self,matrix, best_cost=float('inf'), current_logic_equation = []):
         #TODO: Find essential Prime Implicants in matrix
+        print("Remove Essential Prime Implicants")
         current_matrix_node = copy.deepcopy(matrix)
         next_matrix_node, next_logic_equation = self.optimize_matrix_processing(current_matrix_node, current_logic_equation)
         next_matrix = next_matrix_node.matrix
+        print("Next Matrix: \n", next_matrix)
+        print("Next Logic Equation: \n", next_logic_equation)
 
         next_upperbound_cost = self.upperbound_cost(next_matrix)
         if (len(next_matrix_node.minterms) <= 1 or next_matrix.size == 0): #Terminal Case
@@ -36,29 +39,21 @@ class BB_tree:
                 return None, next_logic_equation # No solution for this branch
         else: # not terminal case
             next_lowerbound_cost = len(self.MiS_quick(next_matrix))
-            if (next_lowerbound_cost + next_upperbound_cost > best_cost): return None, next_logic_equation #No solution on this branch
+            if (next_lowerbound_cost + next_upperbound_cost > best_cost): return None #No solution on this branch
             
-            Pi = self.choose_var(next_matrix)
-            S1_node, S1_equation, S0_node, S0_equation = self.split_logic_matrix(next_matrix_node, Pi, current_logic_equation)
-            if S1_node is not None:
-                S1_node, S1_equation = self.BCP(S1_node, best_cost=best_cost, current_logic_equation=S1_equation)
-            S1_cost = self.upperbound_cost(S1_node.matrix)
-            if S1_cost == next_lowerbound_cost: return S1_node, S1_equation
+            Pi = self.choose_var(next_logic_equation)
 
-            if S0_node is not None:
-                S0_node, S0_equation = self.BCP(S0_node, best_cost=best_cost, current_logic_equation=S0_equation)
-            S0_cost = self.upperbound_cost(S0_node.matrix)
+            S1_node, S1_equation, S0_node, S0_equation = self.split_logic_matrix(matrix, Pi, current_logic_equation)
+            S1_bcp, S1_logic_eq = self.BCP(S1_node, best_cost=best_cost, current_logic_equation=S1_equation)
+            S1_cost = self.upperbound_cost(S0_bcp.matrix) if S1_bcp is not None else float('inf')
+            if S1_cost == next_lowerbound_cost: return S1_bcp, S1_logic_eq
+            S0_bcp, S0_logic_eq = self.BCP(S0_node, best_cost=best_cost, current_logic_equation=S0_equation)
+            S0_cost = self.upperbound_cost(S0_bcp.matrix) if S0_bcp is not None else float('inf')
             if S1_cost < S0_cost: 
-                return S1_node, S1_equation
-            elif S1_cost > S0_cost: 
-                return S0_node, S0_equation
-            elif S1_cost == float('inf') and S0_cost == float('inf'): # No Solution In this Branch
-                print("No Solution In This Branch")
-                return None, next_logic_equation
-            else:
-                print("No Solution In This Branch")
-                return None, next_logic_equation
-            
+                return S1_bcp, S1_logic_eq
+            else: 
+                return S0_bcp, S0_logic_eq
+    
     def MiS_quick(self, matrix:np.array):
         MiS = set()
         matrix = matrix.copy()
@@ -104,33 +99,33 @@ class BB_tree:
             weight = np.sum([col_zi[ones_idx] for ones_idx in row_ones])
             row_weights.append(weight)
         max_weight = max(row_weights)
+        print(max_weight)
         selected_columns = [col_idx for col_idx, weight in enumerate(row_weights) if weight == max_weight]
+        print(selected_columns)
         return random.choice(selected_columns)
 
 
     def split_logic_matrix(self, matrix: minterm_matrix, Pi, curr_equation):
         curr_matrix = matrix.matrix
         curr_prime_implicants = matrix.prime_implicants
-        curr_minterms =  matrix.minterms
-        next_matrix = np.delete(curr_matrix, Pi, axis=0)
-        next_minterms = curr_minterms.copy()
-        del next_minterms[Pi]
-
-        Pi_column = next_matrix[:, Pi]
-        S1_indicies = np.where(Pi_column == 1)[0]
-
-        S1_equation = [curr_minterms[Pi]]
-        S1_equation.extend(curr_equation)
-        S1_matrix = np.delete(next_matrix, S1_indicies, axis=0)
         
-        S1_minterms = [minterm for idx, minterm in enumerate(next_minterms) if idx not in set(S1_indicies)]
-        S1_node = minterm_matrix(S1_matrix, curr_prime_implicants, S1_minterms)
-        S0_indicies = np.where(Pi_column == 0)[0]
-        S0_equation = []
+        next_matrix = np.delete(curr_matrix, Pi, axis=0)
+        Pi_column = next_matrix[:, Pi]  
+        S1_indicies = np.where(Pi_column == 0)[0]
+        S1_prime_implicants = [curr_prime_implicants[s1_idx] for s1_idx in  S1_indicies]
+        S1_equation = [curr_prime_implicants[Pi]]
+        S1_equation.extend(curr_equation)
+        S1_matrix = next_matrix[S1_indicies, :]
+        S1_node = minterm_matrix(S1_matrix, S1_prime_implicants, matrix.minterms)
+
+        S0_indicies = np.where(Pi_column == 1)[0]
+        # S0_equation = [curr_prime_implicants[s0_idx] for s0_idx in  S0_indicies]
+        S0_prime_implicants = [curr_prime_implicants[s0_idx] for s0_idx in S0_indicies]
+        S0_equation = [curr_prime_implicants[Pi]]
         S0_equation.extend(curr_equation)
-        S0_matrix = np.delete(next_matrix, S0_indicies, axis=0)
-        S0_minterms = [minterm for idx, minterm in enumerate(next_minterms) if idx not in set(S0_indicies)]
-        S0_node = minterm_matrix(S0_matrix, curr_prime_implicants, S0_minterms)
+        S0_matrix = next_matrix[S0_indicies, :]
+        S0_node = minterm_matrix(S0_matrix, S0_prime_implicants, matrix.minterms) 
+        # S0_equation, S0_matrix, S1_equation, S1_matrix
         return S1_node, S1_equation, S0_node, S0_equation
     
     def upperbound_cost(self, matrix:np.array):
