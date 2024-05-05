@@ -16,6 +16,7 @@ class BB_tree:
         print(matrix.matrix)
         self.final_node, self.final_equation = self.BCP(matrix)
         print("FINAL EQUATION: ", self.final_equation)
+        self.finalresult(self.final_equation)
         print("Branch and Bound Algorithm Complete!")
 
     def BCP(self,matrix, best_cost=float('inf'), current_logic_equation = []):
@@ -49,7 +50,22 @@ class BB_tree:
                 return S1_node, S1_equation
             else: # S1_cost > S0_cost: 
                 return S0_node, S0_equation
-            
+    
+    def finalresult(self, matrix: minterm_matrix):
+        final_result = []
+        for _, bits_pattern in matrix:
+            final_result.append(bits_pattern)
+        var = []
+        for bits in final_result:
+            variables = ''
+            for i in range(len(bits)):
+                if bits[i] == '0':
+                    variables += "'" + chr(i+65) + "'"
+                elif bits[i] == '1':
+                    variables += chr(i+65)
+            var.append(variables)
+        print('Final Equation: F = '+' + '.join(''.join(i) for i in var))
+                
     def MiS_quick(self, matrix:np.array):
         MiS = set()
         matrix = matrix.copy()
