@@ -80,7 +80,7 @@ class BB_tree:
         MiS = set()
         matrix = matrix.copy()
         row_axis = np.arange(matrix.shape[0])
-        while matrix.size > 0 and matrix.shape[1] > 0:
+        while matrix.size > 0:
             row_sums = np.sum(matrix, axis = 1)
             min_sum = min(row_sums)
             min_row_indicies = np.where(row_sums == min_sum)[0]
